@@ -82,6 +82,8 @@ module Main (S: Mirage_stack_lwt.V4)(B: Mirage_types_lwt.BLOCK) = struct
     )
 
   let start s b : unit Lwt.t =
+    B.get_info b >>= fun binfo ->
+    Logs.info (fun m -> m "Sector size %d" binfo.sector_size);
     if Key_gen.init () then initialize b else (
       let port = Key_gen.port () in
       Logs.info (fun m -> m "Listening on [%a:%d]"
