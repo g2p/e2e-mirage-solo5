@@ -1,7 +1,10 @@
 open Lwt.Infix
 
-module Main (S: Mirage_stack_lwt.V4)(B: Mirage_types_lwt.BLOCK) = struct
+module type INFO = sig
+  val sector_size : int
+end
 
+module MakeOps(S: Mirage_stack_lwt.V4)(B: Mirage_types_lwt.BLOCK)(Info: INFO) = struct
   let align i n = (i + n - 1) / n * n
 
   let alloc_sector len = Cstruct.create (align len 512)
@@ -80,15 +83,21 @@ module Main (S: Mirage_stack_lwt.V4)(B: Mirage_types_lwt.BLOCK) = struct
       Logs.info (fun m -> m "Successfully initialised block device");
       Lwt.return_unit
     )
+end
 
+module Main (S: Mirage_stack_lwt.V4)(B: Mirage_types_lwt.BLOCK) = struct
   let start s b : unit Lwt.t =
     B.get_info b >>= fun binfo ->
+    let module Info: INFO = struct
+      let sector_size = binfo.sector_size
+    end in
+    let module Ops = MakeOps(S)(B)(Info) in
     Logs.info (fun m -> m "Sector size %d" binfo.sector_size);
-    if Key_gen.init () then initialize b else (
+    if Key_gen.init () then Ops.initialize b else (
       let port = Key_gen.port () in
       Logs.info (fun m -> m "Listening on [%a:%d]"
                     Fmt.(list Ipaddr.V4.pp) (S.(IPV4.get_ip @@ ipv4 s)) port);
-      S.listen_tcpv4 s ~port (start_request b);
+      S.listen_tcpv4 s ~port (Ops.start_request b);
       S.listen s
     )
 end
