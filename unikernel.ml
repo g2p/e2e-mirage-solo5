@@ -98,6 +98,8 @@ module Main (S: Mirage_stack_lwt.V4)(B: Mirage_types_lwt.BLOCK) = struct
       Logs.info (fun m -> m "Listening on [%a:%d]"
                     Fmt.(list Ipaddr.V4.pp) (S.(IPV4.get_ip @@ ipv4 s)) port);
       S.listen_tcpv4 s ~port (Ops.start_request b);
-      S.listen s
+      Bootvar.argv () >>= function argv ->
+        Logs.info (fun m -> m "Print argv 0 %s" argv.(0));
+        S.listen s
     )
 end
